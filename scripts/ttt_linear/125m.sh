@@ -1,15 +1,15 @@
 #!/bin/bash
 
-DATA_PATH=TODO
-DATA_NAME="the_pile" # "books3" 
+DATA_PATH=./data/fineweb_cache
+DATA_NAME="HuggingFaceFW/fineweb-edu" # "books3" 
 
 # Product should equal 0.5 million
 SEQ_LEN=2048
 BS=256
 
 # Experiment details
-EXP_NAME=TODO
-EXP_DIR=TODO
+EXP_NAME=test_ttt_linear
+EXP_DIR=./experiments/ttt_linear
 
 sudo mkdir -p /${EXP_DIR}/${EXP_NAME} && sudo chmod -R 777 ${EXP_DIR}/${EXP_NAME};
 cd ../..

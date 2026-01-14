@@ -8,8 +8,8 @@ SEQ_LEN=2048
 BS=256
 
 # Experiment details
-EXP_NAME=TODO
-EXP_DIR=TODO
+EXP_NAME=nano
+EXP_DIR=./experiments/nano
 
 sudo mkdir -p /${EXP_DIR}/${EXP_NAME} && sudo chmod -R 777 ${EXP_DIR}/${EXP_NAME};
 cd ../..

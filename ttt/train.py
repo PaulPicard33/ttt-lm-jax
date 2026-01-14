@@ -337,7 +337,7 @@ def main(argv):
     # Create dataloader
     data_module = LMDataModule(
         dataset_name=FLAGS.dataset_name,
-        dataset_config_name=None,
+        dataset_config_name="sample-10BT",
         tokenizer_name=FLAGS.tokenizer_name,
         cache_dir=FLAGS.dataset_path,
         max_length=seq_length,

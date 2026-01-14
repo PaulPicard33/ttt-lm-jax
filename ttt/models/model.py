@@ -38,6 +38,22 @@ CausalLMOutput = BaseModelOutput
 remat = nn_partitioning.remat
 
 CONFIGS = {
+    "debug-nano": {
+    "num_hidden_layers": 1,
+    "hidden_size": 64,
+    "num_attention_heads": 2,
+    "intermediate_size": 128,
+    "max_sequence_length": 128,
+    # ... gardez le reste de 125m-TTT
+    "initializer_range": 0.02,
+    "rms_norm_eps": 1e-6,
+    "use_cache": True,
+    "tie_word_embeddings": True,
+    "seq_modeling_block": "self_attention",
+    "use_rotary_emb": "sequence",
+    "rope_theta": 10000.0,
+    "pre_conv": False,
+    },
     "125m": {
         "vocab_size": 32000,
         "num_hidden_layers": 12,
@@ -186,6 +202,7 @@ CONFIGS = {
         "pre_conv": True,
         "conv_width": 4,
     },
+    
 }
 
 

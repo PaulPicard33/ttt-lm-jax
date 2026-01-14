@@ -17,7 +17,12 @@ from ttt.infra.jax_utils import with_sharding_constraint, get_gradient_checkpoin
 
 Axes = Union[int, Sequence[int]]
 
-
+def huber_loss(predict, target, delta=0.1):
+    error = predict - target
+    is_small_error = jnp.abs(error) <= delta
+    squared_loss = 0.5 * jnp.square(error)
+    linear_loss = delta * (jnp.abs(error) - 0.5 * delta)
+    return jnp.where(is_small_error, squared_loss, linear_loss)
 def scan_remat_every_n_iterations_scan(f, n, carry, x):
     """
     Remat every n mini batches.
@@ -384,7 +389,7 @@ class TTTLinearBase(TTTBase):
         Z1 = X1 @ W1_init + b1_init
         ttt_norm_out, ttt_norm_vjp = jax.vjp(lambda z: self.ttt_norm.apply({"params": ttt_norm_params}, z), Z1)
         ssl_target = XV_mini_batch - XK_mini_batch
-        grad_l_wrt_ttt_norm_out = ttt_norm_out - ssl_target
+        grad_l_wrt_ttt_norm_out = huber_loss(ttt_norm_out, ssl_target, delta=0.1)
         grad_l_wrt_Z1 = ttt_norm_vjp(grad_l_wrt_ttt_norm_out)[0]
 
         # Calculate TTT loss using W_init of the current mini-batch
@@ -547,7 +552,7 @@ class TTTMLPBase(TTTBase):
         ttt_norm_out, ttt_norm_vjp = jax.vjp(lambda z: self.ttt_norm.apply({"params": ttt_norm_params}, z), Z2)
 
         ssl_target = XV_mini_batch - X1
-        grad_l_wrt_ttt_norm_out = ttt_norm_out - ssl_target
+        grad_l_wrt_ttt_norm_out =huber_loss(ttt_norm_out, ssl_target, delta=0.1)
         grad_l_wrt_Z2 = ttt_norm_vjp(grad_l_wrt_ttt_norm_out)[0]
         grad_l_wrt_Z1 = grad_l_wrt_Z2 @ W2_init.transpose(1, 0) * diff_gelu(Z1)
 

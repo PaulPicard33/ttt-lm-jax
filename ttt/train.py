@@ -403,8 +403,9 @@ def main(argv):
     mesh = model_config.get_jax_mesh(FLAGS.mesh_dim)
     train_state_sharding = jax.tree_util.tree_map(
         lambda x: NamedSharding(mesh, x) if isinstance(x, jax.sharding.PartitionSpec) else x, 
-        train_state_sharding
+        train_state_partition
     )
+
     with mesh:
         sharded_rng = next_rng()
 

@@ -13,6 +13,7 @@ import jax
 import jax.numpy as jnp
 from jax.sharding import PartitionSpec as PS
 from jax.sharding import Mesh
+from jax.sharding import NamedSharding
 from jax.experimental import mesh_utils
 from jax.experimental.pjit import with_sharding_constraint as _with_sharding_constraint
 from jax.experimental.pjit import pjit

@@ -239,7 +239,7 @@ def get_metrics(metrics, unreplicate=False, stack=False):
         metrics = flax.jax_utils.unreplicate(metrics)
     metrics = jax.device_get(metrics)
     if stack:
-        return jax.tree_map(lambda *args: np.stack(args), *metrics)
+        return jax.tree.map(lambda *args: np.stack(args), *metrics)
     else:
         return {key: float(val) for key, val in metrics.items()}
 
@@ -276,7 +276,7 @@ def global_norm(tree):
 
 
 def average_metrics(metrics):
-    return jax.tree_map(lambda *args: jnp.mean(jnp.stack(args)), *metrics)
+    return jax.tree.map(lambda *args: jnp.mean(jnp.stack(args)), *metrics)
 
 
 def get_float_dtype_by_name(dtype):

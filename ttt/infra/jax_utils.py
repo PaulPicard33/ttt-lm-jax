@@ -190,7 +190,7 @@ def with_sharding_constraint(x, partition_specs):
     """
     axis_names = get_names_from_parition_spec(partition_specs)
     if names_in_current_mesh(*axis_names):
-        x = _with_sharding_constraint(x, partition_specs)
+        x = with_sharding_constraint(x, partition_specs)
     return x
 
 

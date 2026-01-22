@@ -7,16 +7,13 @@ import dataclasses
 import random
 from ml_collections import ConfigDict
 from ml_collections.config_dict.config_dict import placeholder
-
-import flax
 import jax
 import jax.numpy as jnp
+from jax.sharding import NamedSharding
+from jax.lax import with_sharding_constraint
+import flax
 from jax.sharding import PartitionSpec as PS
 from jax.sharding import Mesh
-from jax.sharding import NamedSharding
-from jax.experimental import mesh_utils
-from jax.experimental.pjit import with_sharding_constraint as _with_sharding_constraint
-from jax.experimental.pjit import pjit
 from jax.interpreters import pxla
 import numpy as np
 import torch
@@ -101,45 +98,30 @@ class FlaxTemperatureLogitsWarper(FlaxLogitsWarper):
         return scores / jnp.clip(self.temperature, a_min=1e-8)
 
 
-def make_shard_and_gather_fns(partition_specs, dtype_specs=None):
-    """Create pytree of sharding and gathering functions from pytree of
-    partition specs.
-    """
-    float_dtypes = (jnp.bfloat16, jnp.float16, jnp.float32, jnp.float64)
+def float_to_dtype(x):
+    if x == 'fp32': return jnp.float32
+    elif x == 'fp16': return jnp.float16
+    elif x == 'bf16': return jnp.bfloat16
+    return jnp.float32
 
-    def make_to_dtype_fn(dtype_spec):
-        def to_dtype(tensor):
-            if dtype_specs in float_dtypes and getattr(tensor, "dtype", None) in float_dtypes:
-                # Convert all float tensors to the same dtype
-                return tensor.astype(dtype_specs)
-            elif hasattr(dtype_spec, "dtype") and hasattr(tensor, "dtype"):
-                return tensor.astype(dtype_spec.dtype)
-            return tensor
-
-        return to_dtype
-
-    def make_shard_fn(partition_spec, dtype_spec=None):
-        jax_shard_function = pjit(make_to_dtype_fn(dtype_spec), in_shardings=None, out_shardings=partition_spec)
-
+def make_shard_and_gather_fns(partition_spec, dtype_specs, mesh):
+    def make_shard_fn(ps):
+        # On lie explicitement le mesh aux règles de partitionnement (PartitionSpec)
+        # Cela crée un objet Sharding complet compatible JAX 2026
+        sharding = NamedSharding(mesh, ps) if isinstance(ps, jax.sharding.PartitionSpec) else ps
+        
         def shard_fn(tensor):
-            return jax_shard_function(tensor).block_until_ready()
-
+            # On place physiquement le tenseur sur le maillage défini
+            return jax.device_put(tensor, sharding).block_until_ready()
         return shard_fn
 
-    def make_gather_fn(partition_spec, dtype_spec=None):
-        jax_gather_fn = pjit(make_to_dtype_fn(dtype_spec), in_shardings=partition_spec, out_shardings=None)
-
+    def make_gather_fn(ps):
         def gather_fn(tensor):
-            return jax.device_get(jax_gather_fn(tensor))
-
+            return jax.device_get(tensor)
         return gather_fn
 
-    if dtype_specs is None or dtype_specs in float_dtypes:
-        shard_fns = jax.tree_util.tree_map(make_shard_fn, partition_specs)
-        gather_fns = jax.tree_util.tree_map(make_gather_fn, partition_specs)
-    else:
-        shard_fns = jax.tree_util.tree_map(make_shard_fn, partition_specs, dtype_specs)
-        gather_fns = jax.tree_util.tree_map(make_gather_fn, partition_specs, dtype_specs)
+    shard_fns = jax.tree_util.tree_map(make_shard_fn, partition_spec)
+    gather_fns = jax.tree_util.tree_map(make_gather_fn, partition_spec)
     return shard_fns, gather_fns
 
 

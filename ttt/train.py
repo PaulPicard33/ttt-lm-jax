@@ -7,6 +7,8 @@ from copy import deepcopy
 
 import jax 
 import jax.numpy as jnp
+from jax.lax import with_sharding_constraint
+from jax.sharding import PartitionSpec as PS
 from jax.sharding import NamedSharding, Mesh
 from jax.tree_util import tree_map
 from jax.experimental.pjit import pjit
@@ -30,7 +32,7 @@ from ttt.infra.jax_utils import (
     set_random_seed,
     average_metrics,
     get_weight_decay_mask,
-    make_shard_and_gather_fns,
+    make_shard_and_gather_fns,  
     with_sharding_constraint,
     master_print,
     log_ttt_stats,
@@ -167,7 +169,7 @@ def make_eval_step_fn(model, model_config):
     return eval_step
 
 
-def make_sharded_functions(model, optimizer, optimizer_info, model_config):
+def make_sharded_functions(model, optimizer, optimizer_info, model_config,mesh):
     def create_trainstate_from_params(params):
         return TrainState.create(params=params, tx=optimizer, apply_fn=None)
 
@@ -187,8 +189,7 @@ def make_sharded_functions(model, optimizer, optimizer_info, model_config):
 
     train_state_partition = match_partition_rules(model_config.get_partition_rules(), train_state_shapes)
 
-    shard_fns, gather_fns = make_shard_and_gather_fns(train_state_partition, train_state_shapes)
-
+    shard_fns, gather_fns = make_shard_and_gather_fns(train_state_partition, train_state_shapes, mesh)
     sharded_init_fn = pjit(init_fn, in_shardings=PS(), out_shardings=train_state_partition)
 
     sharded_create_trainstate_from_params = pjit(
@@ -384,7 +385,9 @@ def main(argv):
 
     # Helper function for dynamic TTT learning rate
     get_ttt_lr_mult = make_get_ttt_lr_mult(model_config)
-
+    # 1. Créer le maillage en premier
+    mesh = model_config.get_jax_mesh(FLAGS.mesh_dim)
+    jax.set_mesh(mesh) # Définit le maillage global pour Kaggle
     # Create sharded train functions
     (
         sharded_init_fn,
@@ -394,7 +397,7 @@ def main(argv):
         gather_fns,
         train_state_shapes,
         train_state_partition,
-    ) = make_sharded_functions(model, optimizer, optimizer_info, model_config)
+    ) = make_sharded_functions(model, optimizer, optimizer_info, model_config,mesh)
 
     save_checkpoint = make_save_checkpoint(
         checkpointer, gather_fns, variant, flags_config_dict, model_config, global_batch_size

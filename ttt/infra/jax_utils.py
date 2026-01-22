@@ -11,6 +11,7 @@ import jax
 import jax.numpy as jnp
 from jax.sharding import NamedSharding
 from jax.lax import with_sharding_constraint
+from jax.experimental import mesh_utils
 import flax
 from jax.sharding import PartitionSpec as PS
 from jax.sharding import Mesh

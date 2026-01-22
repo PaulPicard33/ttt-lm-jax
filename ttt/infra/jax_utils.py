@@ -185,12 +185,13 @@ def get_names_from_parition_spec(partition_specs):
 
 
 def with_sharding_constraint(x, partition_specs):
-    """A smarter version of with_sharding_constraint that only applies the
-    constraint if the current mesh contains the axes in the partition specs.
-    """
-    axis_names = get_names_from_parition_spec(partition_specs)
-    if names_in_current_mesh(*axis_names):
-        x = with_sharding_constraint(x, partition_specs)
+    # On vérifie si un maillage est actif
+    mesh = jax.sharding.Mesh.get_active_mesh()
+    if mesh is not None:
+        # On crée le sharding réel
+        sharding = NamedSharding(mesh, partition_specs)
+        # On appelle la VRAIE fonction JAX renommée
+        return with_sharding_constraint(x, sharding)
     return x
 
 

@@ -106,13 +106,6 @@ def set_global_mesh(mesh):
     global _GLOBAL_MESH
     _GLOBAL_MESH = mesh
 
-def get_jax_mesh(axis_dims, axis_names):
-    mesh_shape = [int(d) for d in axis_dims]
-    devices = jax.devices()
-    physical_mesh = mesh_utils.create_device_mesh(mesh_shape, devices)
-    mesh = Mesh(physical_mesh, axis_names)
-    set_global_mesh(mesh) # On le fixe au moment de la création
-    return mesh
 
 def with_sharding_constraint(x, partition_specs):
     global _GLOBAL_MESH
@@ -173,33 +166,17 @@ def set_random_seed(seed):
     init_rng(seed)
 
 
-def get_jax_mesh(axis_dims, names):
-    if axis_dims.startswith("!"):
-        # Allow splitting a physical mesh axis if needed
-        mesh_axis_splitting = True
-        axis_dims = axis_dims[1:]
-    else:
-        mesh_axis_splitting = False
-
-    if ":" in axis_dims:
-        dims = []
-        dim_names = []
-        for axis in axis_dims.split(","):
-            name, dim = axis.split(":")
-            assert name in names
-            dims.append(int(dim))
-            dim_names.append(name)
-        assert set(dim_names) == set(names)
-    else:
-        dims = [int(x) for x in axis_dims.split(",")]
-        dim_names = names
-    assert len(dims) == len(names)
-    mesh_shape = np.arange(jax.device_count()).reshape(dims).shape
-    if mesh_axis_splitting:
-        physical_mesh = np.array(jax.devices()).reshape(mesh_shape)
-    else:
-        physical_mesh = mesh_utils.create_device_mesh(mesh_shape)
-    return Mesh(physical_mesh, dim_names)
+def get_jax_mesh(axis_dims, axis_names):
+    global _KAGGLE_MESH
+    mesh_shape = [int(d) for d in axis_dims]
+    devices = jax.devices()
+    
+    # Création manuelle du maillage sans mesh_utils
+    # On transforme la liste des devices en tableau aux bonnes dimensions
+    devices_array = np.array(devices).reshape(mesh_shape)
+    _KAGGLE_MESH = Mesh(devices_array, axis_names)
+    
+    return _KAGGLE_MESH
 
 
 def names_in_current_mesh(*names):

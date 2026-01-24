@@ -160,7 +160,7 @@ def make_eval_step_fn(model, model_config):
         rng_generator = JaxRNG(rng)
         batch = with_sharding_constraint(batch, PS(("dp", "fsdp")))
         logits = model.apply(
-            train_state.params, batch["input_tokens"], deterministic=True, rngs=rng_generator(model_config.rng_keys())
+            train_state.params, batch["input_tokens"], deterministic=True,ttt_lr_mult=ttt_lr_mult, rngs=rng_generator(model_config.rng_keys())
         ).logits
         loss, accuracy = cross_entropy_loss_and_accuracy(logits, batch["target_tokens"], batch["loss_masks"])
         metrics = dict(eval_loss=loss, eval_accuracy=accuracy)
@@ -433,11 +433,11 @@ def main(argv):
 
             val_loader = data_module.val_dataloader()
             eval_metric_list = []
-
+            ttt_lr_mult = get_ttt_lr_mult(int(jax.device_get(train_state.step))) # Récupérer le mult
             for eval_batch in tqdm(val_loader, disable=not master_process):
                 for k in eval_batch.keys():
                     eval_batch[k] = eval_batch[k].numpy()
-                sharded_rng, eval_metrics = sharded_eval_step(train_state, sharded_rng, eval_batch)
+                sharded_rng, eval_metrics = sharded_eval_step(train_state, sharded_rng, eval_batch, ttt_lr_mult)
                 eval_metric_list.append(eval_metrics)
 
             val_loss_avg = average_metrics(process_allgather(eval_metric_list))["eval_loss"].item()

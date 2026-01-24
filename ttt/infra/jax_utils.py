@@ -105,13 +105,7 @@ _GLOBAL_MESH = None
 def set_global_mesh(mesh):
     global _GLOBAL_MESH
     _GLOBAL_MESH = mesh
-def with_sharding_constraint(x, partition_specs):
-    global _GLOBAL_MESH
-    if _GLOBAL_MESH is not None:
-        # On utilise le maillage fixé en dur
-        sharding = NamedSharding(_GLOBAL_MESH, partition_specs)
-        return jax_with_sharding_constraint(x, sharding)
-    return x
+
 
 # Pour shard_fns également
 def make_shard_and_gather_fns(partition_spec, dtype_specs, mesh=None):
@@ -207,12 +201,12 @@ def get_names_from_parition_spec(partition_specs):
 
 
 def with_sharding_constraint(x, partition_specs):
-    """A smarter version of with_sharding_constraint that only applies the
-    constraint if the current mesh contains the axes in the partition specs.
-    """
-    axis_names = get_names_from_parition_spec(partition_specs)
-    if names_in_current_mesh(*axis_names):
-        x = _with_sharding_constraint(x, partition_specs)
+    global _KAGGLE_MESH
+    if _KAGGLE_MESH is not None:
+        # On crée le sharding physique
+        sharding = NamedSharding(_KAGGLE_MESH, partition_specs)
+        # On force le placement sur le GPU via device_put
+        return jax.device_put(x, sharding)
     return x
 
 

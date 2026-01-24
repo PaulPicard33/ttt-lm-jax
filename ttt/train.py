@@ -156,7 +156,7 @@ def make_train_step_fn(model, optimizer_info, model_config, accum_steps=1):
 
 
 def make_eval_step_fn(model, model_config):
-    def eval_step(train_state, rng, batch):
+    def eval_step(train_state, rng, batcht, ttt_lr_mult):
         rng_generator = JaxRNG(rng)
         batch = with_sharding_constraint(batch, PS(("dp", "fsdp")))
         logits = model.apply(
@@ -415,7 +415,7 @@ def main(argv):
         start_step, train_state, train_loader = initialize_or_resume(
             checkpointer,
             train_loader,
-            train_state_shapes,
+            train_state_shapes,make_eval_step_fn
             sharded_init_fn,
             shard_fns,
             sharded_create_trainstate_from_params,

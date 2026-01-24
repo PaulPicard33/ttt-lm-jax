@@ -11,7 +11,7 @@ import jax
 import jax.numpy as jnp
 from jax.sharding import NamedSharding
 from jax.lax import with_sharding_constraint
-from jax.experimental import mesh_utils
+
 import flax
 from jax.sharding import PartitionSpec as PS
 from jax.sharding import Mesh
@@ -99,6 +99,46 @@ class FlaxTemperatureLogitsWarper(FlaxLogitsWarper):
         return scores / jnp.clip(self.temperature, a_min=1e-8)
 
 
+# Variable globale pour fixer le maillage en dur
+_GLOBAL_MESH = None
+
+def set_global_mesh(mesh):
+    global _GLOBAL_MESH
+    _GLOBAL_MESH = mesh
+
+def get_jax_mesh(axis_dims, axis_names):
+    mesh_shape = [int(d) for d in axis_dims]
+    devices = jax.devices()
+    physical_mesh = mesh_utils.create_device_mesh(mesh_shape, devices)
+    mesh = Mesh(physical_mesh, axis_names)
+    set_global_mesh(mesh) # On le fixe au moment de la création
+    return mesh
+
+def with_sharding_constraint(x, partition_specs):
+    global _GLOBAL_MESH
+    if _GLOBAL_MESH is not None:
+        # On utilise le maillage fixé en dur
+        sharding = NamedSharding(_GLOBAL_MESH, partition_specs)
+        return jax_with_sharding_constraint(x, sharding)
+    return x
+
+# Pour shard_fns également
+def make_shard_and_gather_fns(partition_spec, dtype_specs, mesh=None):
+    # Si mesh n'est pas passé, on prend le global
+    actual_mesh = mesh if mesh is not None else _GLOBAL_MESH
+    
+    def make_shard_fn(ps):
+        sharding = NamedSharding(actual_mesh, ps)
+        def shard_fn(tensor):
+            return jax.device_put(tensor, sharding).block_until_ready()
+        return shard_fn
+
+    def make_gather_fn(ps):
+        return lambda tensor: jax.device_get(tensor)
+
+    shard_fns = jax.tree_util.tree_map(make_shard_fn, partition_spec)
+    gather_fns = jax.tree_util.tree_map(make_gather_fn, partition_spec)
+    return shard_fns, gather_fns
 def float_to_dtype(x):
     if x == 'fp32': return jnp.float32
     elif x == 'fp16': return jnp.float16
@@ -185,13 +225,12 @@ def get_names_from_parition_spec(partition_specs):
 
 
 def with_sharding_constraint(x, partition_specs):
-    # On vérifie si un maillage est actif
-    mesh = jax.sharding.Mesh.get_active_mesh()
-    if mesh is not None:
-        # On crée le sharding réel
-        sharding = NamedSharding(mesh, partition_specs)
-        # On appelle la VRAIE fonction JAX renommée
-        return with_sharding_constraint(x, sharding)
+    """A smarter version of with_sharding_constraint that only applies the
+    constraint if the current mesh contains the axes in the partition specs.
+    """
+    axis_names = get_names_from_parition_spec(partition_specs)
+    if names_in_current_mesh(*axis_names):
+        x = _with_sharding_constraint(x, partition_specs)
     return x
 
 

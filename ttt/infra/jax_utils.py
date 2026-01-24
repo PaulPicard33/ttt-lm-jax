@@ -105,8 +105,6 @@ _GLOBAL_MESH = None
 def set_global_mesh(mesh):
     global _GLOBAL_MESH
     _GLOBAL_MESH = mesh
-
-
 def with_sharding_constraint(x, partition_specs):
     global _GLOBAL_MESH
     if _GLOBAL_MESH is not None:
@@ -132,6 +130,7 @@ def make_shard_and_gather_fns(partition_spec, dtype_specs, mesh=None):
     shard_fns = jax.tree_util.tree_map(make_shard_fn, partition_spec)
     gather_fns = jax.tree_util.tree_map(make_gather_fn, partition_spec)
     return shard_fns, gather_fns
+
 def float_to_dtype(x):
     if x == 'fp32': return jnp.float32
     elif x == 'fp16': return jnp.float16
@@ -168,11 +167,17 @@ def set_random_seed(seed):
 
 def get_jax_mesh(axis_dims, axis_names):
     global _KAGGLE_MESH
+    
+    # Nettoyage : si axis_dims est une chaîne "1,1,-1", on la découpe
+    if isinstance(axis_dims, str):
+        # On enlève les parenthèses/crochets éventuels et on split par virgule
+        axis_dims = axis_dims.replace('(', '').replace(')', '').replace('[', '').replace(']', '')
+        axis_dims = [d for d in axis_dims.split(',') if d.strip()]
+    
     mesh_shape = [int(d) for d in axis_dims]
     devices = jax.devices()
     
-    # Création manuelle du maillage sans mesh_utils
-    # On transforme la liste des devices en tableau aux bonnes dimensions
+    # Création manuelle du maillage (indispensable si mesh_utils est absent)
     devices_array = np.array(devices).reshape(mesh_shape)
     _KAGGLE_MESH = Mesh(devices_array, axis_names)
     

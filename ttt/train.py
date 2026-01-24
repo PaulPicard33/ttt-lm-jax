@@ -426,7 +426,7 @@ def main(argv):
             eval_step = make_eval_step_fn(model, model_config)
             sharded_eval_step = pjit(
                 eval_step,
-                in_shardings=(train_state_partition, PS(), PS()),
+                in_shardings=(train_state_partition, PS(), PS(),PS()),
                 out_shardings=(PS(), PS()),
                 donate_argnums=(1,),
             )

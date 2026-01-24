@@ -513,7 +513,9 @@ def main(argv):
                 step == FLAGS.total_steps
             ):
                 master_print(f"Saving checkpoint at step {step}, do not kill...")
-                save_checkpoint(train_state, train_loader, step % FLAGS.save_milestone_freq == 0)
+                # Version corrigée JAX 2026
+                is_milestone = (FLAGS.save_milestone_freq > 0 and step % FLAGS.save_milestone_freq == 0)
+                save_checkpoint(train_state, train_loader, is_milestone)
 
             if step == FLAGS.total_steps:
                 master_print("Training has completed!")

@@ -239,7 +239,8 @@ def make_save_checkpoint(checkpointer, gather_fns, variant, flags_config_dict, m
 
 
 def make_get_ttt_lr_mult(model_config):
-
+    # On récupère le type global défini par FLAGS.dtype
+    target_dtype = get_float_dtype_by_name(FLAGS.dtype)
     if (
         hasattr(model_config, "ttt_base_lr_init")
         and model_config.ttt_base_lr_init > 0
@@ -253,13 +254,13 @@ def make_get_ttt_lr_mult(model_config):
             ttt_lr_mult = ttt_lr_mult_init + min(1.0, (step - 1) / ttt_lr_mult_warmup_steps) * (
                 ttt_lr_mult_peak - ttt_lr_mult_init
             )
-            ttt_lr_mult = ttt_lr_mult / ttt_lr_mult_peak * jnp.ones((1,), dtype=jnp.bfloat16)
+            ttt_lr_mult = ttt_lr_mult / ttt_lr_mult_peak * jnp.ones((1,), dtype=target_dtype)
             return ttt_lr_mult
 
     else:
 
         def get_ttt_lr_mult(step):
-            ttt_lr_mult = jnp.ones((1,), dtype=jnp.bfloat16)
+            ttt_lr_mult = jnp.ones((1,), dtype=target_dtype)
             return ttt_lr_mult
 
     return get_ttt_lr_mult

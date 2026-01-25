@@ -18,6 +18,7 @@ from ttt.infra.jax_utils import with_sharding_constraint, get_gradient_checkpoin
 Axes = Union[int, Sequence[int]]
 
 def huber_loss(predict, target, delta=0.1):
+    delta = jnp.array(delta, dtype=predict.dtype)
     error = predict - target
     is_small_error = jnp.abs(error) <= delta
     squared_loss = 0.5 * jnp.square(error)
@@ -427,7 +428,10 @@ class TTTLinearBase(TTTBase):
             ttt_loss_mse_step_1 = None
 
         ttt_params_mini_batch_new = (W1_bar_last, b1_bar_last)
-
+        # AJOUT : On force le type de sortie à correspondre au type d'entrée
+        ttt_params_mini_batch_new = jax.tree_util.tree_map(
+            lambda x, y: x.astype(y.dtype), ttt_params_mini_batch_new, ttt_params_mini_batch_init
+        )
         return (
             ttt_params_mini_batch_new,
             (output_mini_batch, ttt_loss_mse_init, ttt_loss_mse_step_0, ttt_loss_mse_step_1),

@@ -332,8 +332,7 @@ def main(argv):
     global_dev_num = jax.device_count()
     local_dev_num = jax.local_device_count()
     master_process = jax.process_index() == 0
-    model_config.use_huber_loss = FLAGS.use_huber_loss
-    model_config.huber_delta = FLAGS.huber_delta
+    
     dev_info = f"Process # {process_num}\tLocal dev # {local_dev_num}\tTotal dev # {global_dev_num}"
     master_print(dev_info)
 
@@ -375,6 +374,8 @@ def main(argv):
     model_config.vocab_size = data_module.vocab_size
     model_config.max_sequence_length = seq_length
     flags_config_dict.model_config = model_config
+    model_config.use_huber_loss = FLAGS.use_huber_loss
+    model_config.huber_delta = FLAGS.huber_delta
 
     # Create WandB run and checkpointer
     if master_process:

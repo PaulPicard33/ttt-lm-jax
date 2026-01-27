@@ -163,10 +163,19 @@ def make_eval_step_fn(model, model_config):
         rng_generator = JaxRNG(rng)
         batch = with_sharding_constraint(batch, PS(("dp", "fsdp")))
         logits = model.apply(
-            train_state.params, batch["input_tokens"], deterministic=True,ttt_lr_mult=ttt_lr_mult, rngs=rng_generator(model_config.rng_keys())
+            train_state.params, batch["input_tokens"], deterministic=True,output_ttt_stats=True, ttt_lr_mult=ttt_lr_mult, rngs=rng_generator(model_config.rng_keys())
         ).logits
+        # On récupère les 3 stats TTT (init, step_0, step_1)
+        # Note : ttt_stats est une liste par couche, on prend la moyenne
+        ttt_stats = logits.ttt_stats
         loss, accuracy = cross_entropy_loss_and_accuracy(logits, batch["target_tokens"], batch["loss_masks"])
-        metrics = dict(eval_loss=loss, eval_accuracy=accuracy)
+        metrics = dict( 
+            eval_loss=loss, 
+            eval_accuracy=accuracy,
+            ttt_init=ttt_stats[0],   # Erreur sans TTT
+            ttt_step0=ttt_stats[1],  # Erreur avant mise à jour bloc
+            ttt_step1=ttt_stats[2]   # Erreur après mise à jour bloc
+        )        
         return rng_generator(), metrics
 
     return eval_step
@@ -450,6 +459,13 @@ def main(argv):
             val_acc_avg = average_metrics(process_allgather(eval_metric_list))["eval_accuracy"].item()
             master_print(f"Eval Loss: {val_loss_avg:.4f} | Eval Accuracy: {val_acc_avg:.4f}")
             master_print(f"Eval Loss: {val_loss_avg:.4f}")
+            metrics_avg = average_metrics(process_allgather(eval_metric_list))
+            master_print("-" * 30)
+            master_print("STATISTIQUES D'APPRENTISSAGE TTT :")
+            master_print(f"  MSE Initiale (W0)     : {metrics_avg['ttt_init']:.6f}")
+            master_print(f"  MSE Avant Update (W_t): {metrics_avg['ttt_step0']:.6f}")
+            master_print(f"  MSE Après Update (W_t): {metrics_avg['ttt_step1']:.6f}")
+            master_print("-" * 30)
             exit(0)
 
         train_loader_iterator = iter(train_loader)

@@ -556,7 +556,15 @@ class TTTMLPBase(TTTBase):
         ttt_norm_out, ttt_norm_vjp = jax.vjp(lambda z: self.ttt_norm.apply({"params": ttt_norm_params}, z), Z2)
 
         ssl_target = XV_mini_batch - X1
-        grad_l_wrt_ttt_norm_out =huber_loss(ttt_norm_out, ssl_target, delta=0.1)
+        # Switch dynamique entre YAAD (Huber) et Baseline (MSE)
+        if getattr(self.config, "use_huber_loss", True):
+            # Votre implémentation YAAD
+            grad_l_wrt_ttt_norm_out = huber_loss(
+                ttt_norm_out, ssl_target, delta=getattr(self.config, "huber_delta", 0.1)
+            )
+        else:
+            # La MSE standard (Base)
+            grad_l_wrt_ttt_norm_out = ttt_norm_out - ssl_target
         grad_l_wrt_Z2 = ttt_norm_vjp(grad_l_wrt_ttt_norm_out)[0]
         grad_l_wrt_Z1 = grad_l_wrt_Z2 @ W2_init.transpose(1, 0) * diff_gelu(Z1)
 

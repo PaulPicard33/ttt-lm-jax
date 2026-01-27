@@ -49,6 +49,8 @@ FLAGS, FLAGS_DEF = mlxu.define_flags_with_default(
     load_model_config="",
     update_model_config="",
     save_checkpoint_freq=100,
+    use_huber_loss=True,  # True pour YAAD, False pour MSE standard
+    huber_delta=0.1,      # Paramètre delta pour la perte Huber (non utilisé si use_huber_loss=False)
     save_milestone_freq=0,
     dataset_path="data/wikitext_cache",
     dataset_config_name = "wikitext-103-v1",
@@ -330,7 +332,8 @@ def main(argv):
     global_dev_num = jax.device_count()
     local_dev_num = jax.local_device_count()
     master_process = jax.process_index() == 0
-
+    model_config.use_huber_loss = FLAGS.use_huber_loss
+    model_config.huber_delta = FLAGS.huber_delta
     dev_info = f"Process # {process_num}\tLocal dev # {local_dev_num}\tTotal dev # {global_dev_num}"
     master_print(dev_info)
 

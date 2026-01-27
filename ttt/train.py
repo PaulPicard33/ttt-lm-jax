@@ -162,12 +162,13 @@ def make_eval_step_fn(model, model_config):
     def eval_step(train_state, rng, batch, ttt_lr_mult):
         rng_generator = JaxRNG(rng)
         batch = with_sharding_constraint(batch, PS(("dp", "fsdp")))
-        logits = model.apply(
+        outputs = model.apply(
             train_state.params, batch["input_tokens"], deterministic=True,output_ttt_stats=True, ttt_lr_mult=ttt_lr_mult, rngs=rng_generator(model_config.rng_keys())
-        ).logits
+        )
+        logits = outputs.logits
         # On récupère les 3 stats TTT (init, step_0, step_1)
         # Note : ttt_stats est une liste par couche, on prend la moyenne
-        ttt_stats = logits.ttt_stats
+        ttt_stats = outputs.ttt_stats
         loss, accuracy = cross_entropy_loss_and_accuracy(logits, batch["target_tokens"], batch["loss_masks"])
         metrics = dict( 
             eval_loss=loss, 

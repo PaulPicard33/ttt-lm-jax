@@ -456,16 +456,26 @@ def main(argv):
                 sharded_rng, eval_metrics = sharded_eval_step(train_state, sharded_rng, eval_batch, ttt_lr_mult)
                 eval_metric_list.append(eval_metrics)
 
-            val_loss_avg = average_metrics(process_allgather(eval_metric_list))["eval_loss"].item()
-            val_acc_avg = average_metrics(process_allgather(eval_metric_list))["eval_accuracy"].item()
-            master_print(f"Eval Loss: {val_loss_avg:.4f} | Eval Accuracy: {val_acc_avg:.4f}")
-            master_print(f"Eval Loss: {val_loss_avg:.4f}")
+            
             metrics_avg = average_metrics(process_allgather(eval_metric_list))
+            
+            # Fonction pour convertir un tuple/array en scalaire propre
+            def to_scalar(val):
+                if isinstance(val, (tuple, list)):
+                    return jnp.mean(jnp.array(val)).item()
+                return jnp.array(val).item()
+
+            master_print("-" * 30)
+            master_print(f"RESULTATS EVALUATION ({FLAGS.exp_name})")
+            master_print(f"Eval Loss: {to_scalar(metrics_avg['eval_loss']):.4f}")
+            master_print(f"Eval Accuracy: {to_scalar(metrics_avg['eval_accuracy']):.4f}")
             master_print("-" * 30)
             master_print("STATISTIQUES D'APPRENTISSAGE TTT :")
-            master_print(f"  MSE Initiale (W0)     : {metrics_avg['ttt_init']:.6f}")
-            master_print(f"  MSE Avant Update (W_t): {metrics_avg['ttt_step0']:.6f}")
-            master_print(f"  MSE Après Update (W_t): {metrics_avg['ttt_step1']:.6f}")
+            
+            # On applique to_scalar pour transformer les tuples en nombres
+            master_print(f"  MSE Initiale (W0)     : {to_scalar(metrics_avg['ttt_init']):.6f}")
+            master_print(f"  MSE Avant Update (W_t): {to_scalar(metrics_avg['ttt_step0']):.6f}")
+            master_print(f"  MSE Après Update (W_t): {to_scalar(metrics_avg['ttt_step1']):.6f}")
             master_print("-" * 30)
             exit(0)
 
